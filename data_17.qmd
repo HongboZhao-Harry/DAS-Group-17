@@ -299,3 +299,16 @@ ggplot(animal, aes(x = fitted_vals, y = res)) +
 ```
 
 # summary
+
+The report provides an in-depth statistical analysis of the number of days animals spend in shelters and uses a variety of models to reveal the patterns behind the data. Overall, the data show a clear right-skewed distribution: most animals have shorter stays (mainly between 0 and 10 days), while a few animals may have longer stays.
+
+In order to explore the factors affecting the length of stay of animals, Poisson regression and negative binomial regression models were first used to analyze the role of variables such as animal entry method, exit result, animal species, chip state and month order. The results show that "OWNER SURRENDER" and "STRAY" are often associated with shorter stay days; In the results, "DIED", "EUTHANIZED" and "RETURNED TO OWNER" also significantly correspond to a shorter residence time, while dogs tend to stay longer, although chip status and month order have an impact, but the effect is weak.
+
+Due to the large number of zeros in the data, the report further introduces the zero expansion model, and the negative binomial model is better on both AIC and BIC.
+
+# Furture work
+
+Considering the large number of 0 values, the presence of multiple explanatory variables in the data, and the fact that glm's fitting is not very good, we can try to use ANN to predict the time of animals in shelters.
+
+How to transform non-numerical explanatory variables into numerical explanatory variables is still in the process of research, or will the frequency of observer occurrence be considered as the conversion criterion.
+
