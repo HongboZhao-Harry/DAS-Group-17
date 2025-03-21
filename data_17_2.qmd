@@ -196,30 +196,21 @@ print(mcfadden_r2)
 ### nb_model_1
 
 ```{r}
-animal$residuals <- residuals(nb_model_1, type = "deviance")
-predicted_values <- predict(nb_model_1, type = "response")
+library(ggplot2)
+# Residual Plot
+model_data <- model.frame(nb_model)
+model_data$residuals <- residuals(nb_model, type = "deviance")
+predicted_values <- predict(nb_model, type = "response")
 
-ggplot(animal, aes(x = predicted_values, y = residuals)) +
+ggplot(model_data, aes(x = predicted_values, y = residuals)) +
   geom_point(alpha = 0.4, color = "blue") +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
   theme_minimal()
 
 # Comment:
-# The figure shows that the model has a large residual dispersion in the region of low predicted values
-```
+# This plot shows the relationship between the predicted values and the deviance residuals of the nb_model, indicating potential heteroscedasticity.
 
-### zeroflated_model
-
-```{r}
-res <- residuals(zeroflated_model, type = "pearson")
-fitted_vals <- fitted(zeroflated_model)
-
-ggplot(animal, aes(x = fitted_vals, y = res)) +
-  geom_point(alpha = 0.4, color = "blue") +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
-  theme_minimal()
 
 ```
 
