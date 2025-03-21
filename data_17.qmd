@@ -77,9 +77,13 @@ ggplot(animal, aes(x = time_at_shelter)) +
   geom_histogram(binwidth = 2, fill = "skyblue", color = "black", alpha = 0.8) +
   labs( x = "time_at_shelter", y = "Number") +
   theme_minimal()
+
+sum(animal$time_at_shelter == 0)
+mean(animal$time_at_shelter == 0)
+
 ```
 
-The @fig-1 presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated   in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.
+The @fig-1 presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated   in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.And 374 observations (22.58%) have a `time_at_shelter` value of 0, suggesting that it should be carefully considered when fitting the model.
 
 ```{r}
 # boxplot
