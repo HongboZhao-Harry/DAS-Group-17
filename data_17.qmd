@@ -300,11 +300,6 @@ ggplot(animal, aes(x = fitted_vals, y = res)) +
 ```
 
 # summary
----
-title: "Untitled"
-format: html
-editor: visual
----
 
 The report provides an in-depth statistical analysis of the number of days animals spend in shelters and uses a variety of models to reveal the patterns behind the data. Overall, the data show a clear right-skewed distribution: most animals have shorter stays (mainly between 0 and 10 days), while a few animals may have longer stays.
 
