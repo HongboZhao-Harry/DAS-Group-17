@@ -77,9 +77,12 @@ ggplot(animal, aes(x = time_at_shelter)) +
   geom_histogram(binwidth = 2, fill = "skyblue", color = "black", alpha = 0.8) +
   labs( x = "time_at_shelter", y = "Number") +
   theme_minimal()
+
+sum(animal$time_at_shelter == 0)
+mean(animal$time_at_shelter == 0)
 ```
 
-The @fig-1 presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated   in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.
+The @fig-1 presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.And 374 observations (22.58%) have a `time_at_shelter` value of 0, suggesting that it should be carefully considered when fitting the model.
 
 ```{r}
 # boxplot
@@ -94,7 +97,7 @@ ggplot(data = animal, aes(x = animal_type, y = time_at_shelter, fill = animal_ty
   theme(legend.position = "none")
 ```
 
-The median of cats is smaller than that of dogs, but dogs have a wider distribution. The upper quartile range for dogs is larger, meaning that some dogs stay in shelters for longer periods of time. 
+The median of cats is smaller than that of dogs, but dogs have a wider distribution. The upper quartile range for dogs is larger, meaning that some dogs stay in shelters for longer periods of time.
 
 ```{r}
 #| fig-cap: Boxplot of time_at_shelter and intake_type
@@ -168,7 +171,6 @@ dispersion
 
 The dispersion parameter (8.007) is much larger than 1, which means our GLM may have overdispersion. Therefore, we consider negative binomial regression to improve the model's fit.
 
-
 ### Negative binomial regression model
 
 Negative binomial distribution is used when the data is too discrete
@@ -197,9 +199,6 @@ nb_model_2 <- glm.nb(time_at_shelter ~  intake_type  +chip_status + month_ordere
 summary(nb_model_2)
 
 ```
-
-
-
 
 ### **Zero-inflated model**
 
