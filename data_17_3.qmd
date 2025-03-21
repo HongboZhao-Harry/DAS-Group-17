@@ -1,0 +1,235 @@
+---
+title: "Analysis of the number of days an animal spends in the shelter"
+author: "Group 17"
+number-sections: true
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+execute:
+  echo: true
+  eval: true
+  warning: false
+  message: false
+---
+
+# introduction
+
+Data include animal type, month, year, intake type, outcome type, chip status, time at shelter. This study is dedicated to exploring Which factors influence the number of days an animal spends in the shelter before its final outcome is decided.
+
+# Main body
+
+## Import packages
+
+```{r}
+#| label: libraries
+library(tidyverse)
+library(moderndive)
+library(gapminder)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(ggplot2)
+library(MASS)
+library(car)
+library(pscl)
+
+```
+
+## Read data and plot
+
+```{r}
+# read data
+data <- read.csv("dataset17.csv", header = TRUE)
+head(data)
+
+animal<- data %>%
+  filter(animal_type == "DOG" |  animal_type=="CAT")%>%
+  droplevels()
+
+animal <- animal%>%
+  mutate(animal_type=as.factor(animal_type),
+         intake_type=as.factor(intake_type),
+         outcome_type=as.factor(outcome_type),
+         chip_status=factor(chip_status,levels=c("UNABLE TO SCAN","SCAN CHIP","SCAN NO CHIP")),
+         month =as.factor(month),
+         year=as.factor(year))
+
+# check the factors
+levels(animal$animal_type)
+levels(animal$intake_type)
+levels(animal$outcome_type)
+levels(animal$chip_status)
+
+
+#plot histogram
+ggplot(animal,aes(x=time_at_shelter))+
+  geom_histogram()
+
+# boxplot
+ggplot(data = animal, aes(x = animal_type, y = time_at_shelter, fill = animal_type)) +
+  geom_boxplot() +
+  labs(x = "animal type", y = "time at shelter")+ 
+  theme(legend.position = "none")
+#boxplot_2
+ggplot(animal, aes(x = intake_type, y = time_at_shelter,fill = intake_type)) +
+  geom_boxplot() +
+  theme_minimal()
+#boxplot_3
+ggplot(animal, aes(x = chip_status, y = time_at_shelter,fill = chip_status)) +
+  geom_boxplot() +
+  theme_minimal()
+
+# plot barchart
+ggplot(animal, aes(x = factor(month, levels = c(10:12, 1:9)), fill = factor(year))) +
+  geom_bar(position = "dodge") +
+  labs(title = "The number of animals admitted per month by year",
+       x = "Month",
+       y = "Count",
+       fill = "Year") +
+  theme_minimal()
+
+
+# Comment: 
+# Distribution characteristics: The histogram presents a right-skewed distribution.   Most animals stay in shelters for a relatively short period of time, concentrated   in the range of 0-10 days, and very few animals stay for more than 30 days or      even  longer.
+#
+# The tendency of "DOG" is more than the upper limit of the box plot, indicating     that some dogs stay much longer than most of their species.
+#
+# As can be seen from the figure, the number of inbound transactions in each month   changes with each month, showing obvious fluctuations
+```
+
+## model and anaylsis
+
+### Poisson regression
+
+Poisson regression is one of the most commonly used generalized linear models when analyzing numerical data, so the study starts with poisson regression.
+
+```{r}
+
+# set up "month" in order
+animal <- animal %>%
+  mutate(month = as.numeric(month),
+         month_ordered = ifelse(month >= 10, month - 9, month + 3))
+
+
+# Poisson regression
+glm_model <- glm(time_at_shelter ~ animal_type +  month_ordered + intake_type  + chip_status,
+                 data = animal,
+                 family = poisson(link = "log"))
+
+
+summ(glm_model)
+
+# overdivergence of Poisson regression
+dispersion <- sum(residuals(glm_model, type = "pearson")^2) / glm_model$df.residual
+dispersion
+
+# Comment:
+# Poisson regression model fits well as Pseudo-R² (McFadden) is 0.18, but overdivergence is around 7 so it has to be droped
+
+```
+
+### Negative binomial regression model
+
+Negative binomial distribution is used when the data is too discrete
+
+```{r}
+
+# Fit the full model (including all explanatory variables)
+full_model <- glm.nb(time_at_shelter ~ animal_type + intake_type  +chip_status + month_ordered , data = animal)
+
+# Fit an empty model (only intercept terms)
+null_model <- glm.nb(time_at_shelter ~ 1, data = animal)
+
+# Model selection using stepwise regression (two-way selection), based on AIC index
+selected_model <- stepAIC(null_model, 
+                          scope = list(lower = null_model, upper = full_model), 
+                          direction = "both")
+
+summary(selected_model)
+summ(selected_model)
+
+# Comment:
+# The smaller the AIC, the better the trade-off between model fitting effect and     complexity
+
+
+# Negative binomial regression model 1
+nb_model_1 <- glm.nb(time_at_shelter ~  month_ordered + intake_type +  chip_status,data = animal)
+
+summ(nb_model_1)
+
+# Negative binomial regression model 2
+nb_model_2 <- glm.nb(time_at_shelter ~ animal_type + intake_type +month + chip_status,data = animal)
+
+summary(nb_model_2)
+
+c(nb_model_1$deviance, glm_model$deviance)
+# Comment:
+# the Pseudo-R²(Cragg-Uhler) of nb_model_1 is 0.04, the Pseudo-R²(Cragg-Uhler) of nb_model_1 is 0.03, nb_model_1 fits better so it should be took as the final model. the Pseudo-R² (McFadden) of both are 0.01
+
+```
+
+### **Zero-inflated model**
+
+Considering that the sample contains too many zeros, we decided to try Zero-inflated model.
+
+```{r}
+# Zero-inflated model
+
+zeroflated_model <- zeroinfl(time_at_shelter ~ animal_type + intake_type + chip_status + month_ordered, data = animal, dist = "negbin")
+
+summary(zeroflated_model)
+
+# AIC, BIC and mcfadden R²
+
+aic_value <- AIC(zeroflated_model)
+bic_value <- BIC(zeroflated_model)
+print(aic_value)
+print(bic_value)
+
+
+null_model <- update(zeroflated_model, . ~ 1)
+mcfadden_r2 <- 1 - as.numeric(logLik(zeroflated_model)) / as.numeric(logLik(null_model))
+print(mcfadden_r2)
+
+# Comment:
+# AIC is 9335 and BIC is 9416 , both of them are lower than the model above. Mcfadden R² is 0.013
+
+```
+
+## Residual Plot
+
+### nb_model_1
+
+```{r}
+animal$residuals <- residuals(nb_model_1, type = "deviance")
+predicted_values <- predict(nb_model_1, type = "response")
+
+ggplot(animal, aes(x = predicted_values, y = residuals)) +
+  geom_point(alpha = 0.4, color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
+  theme_minimal()
+
+# Comment:
+# The figure shows that the model has a large residual dispersion in the region of low predicted values
+```
+
+### zeroflated_model
+
+```{r}
+res <- residuals(zeroflated_model, type = "pearson")
+fitted_vals <- fitted(zeroflated_model)
+
+ggplot(animal, aes(x = fitted_vals, y = res)) +
+  geom_point(alpha = 0.4, color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
+  theme_minimal()
+
+```
+
+# summary
