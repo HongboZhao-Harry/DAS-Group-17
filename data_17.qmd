@@ -16,16 +16,9 @@ execute:
   message: false
 ---
 
-# introduction
-
-Data include animal type, month, year, intake type, outcome type, chip status, time at shelter. This study is dedicated to exploring Which factors influence the number of days an animal spends in the shelter before its final outcome is decided.
-
-# Main body
-
-## Import packages
-
 ```{r}
 #| label: libraries
+# Import packages
 library(tidyverse)
 library(moderndive)
 library(gapminder)
@@ -39,7 +32,13 @@ library(pscl)
 
 ```
 
-## Read data and plot
+# Introduction
+
+Data include animal type, month, year, intake type, outcome type, chip status, time at shelter. This study is dedicated to exploring Which factors influence the number of days an animal spends in the shelter before its final outcome is decided.
+
+# Exploratory Data Analysis
+
+## Data Conversion
 
 ```{r}
 # read data
@@ -142,9 +141,9 @@ ggplot(animal, aes(x = factor(month, levels = c(10:12, 1:9)), y = time_at_shelte
 
 The time range of the dataset is from October to December 2016 and January to September 2017. The monthly data is complete so we consider it as an explanatory variable. The length of time animals spent in shelters did not show significant seasonal variations across years, with most animals staying short (less than 20 days).
 
-## model and anaylsis
+# Formal Analysis
 
-### Poisson regression
+## Method1 : Poisson regression
 
 Poisson regression is one of the most commonly used generalized linear models when analyzing numerical data, so the study starts with poisson regression.
 
@@ -171,7 +170,9 @@ dispersion
 
 The dispersion parameter (8.007) is much larger than 1, which means our GLM may have overdispersion. Therefore, we consider negative binomial regression to improve the model's fit.
 
-### Negative binomial regression model
+The Negative Binomial distribution extends the Poisson model by allowing for overdispersion,which means the variance is significantly greater than the mean.
+
+## Method2 : Negative binomial regression model
 
 Negative binomial distribution is used when the data is too discrete
 
@@ -200,9 +201,13 @@ summary(nb_model_2)
 
 ```
 
-### **Zero-inflated model**
+We applied stepwise model selection using the `stepAIC()` function, starting from a null model and considering both forward and backward selection. The algorithm selected a model including `intake_type`, `month_ordered`, `chip_status`, and `animal_type`, with the lowest AIC (9438.0). Although `animal_type` was only marginally significant (p = 0.099), it contributed to lowering the AIC.
 
-Considering that the sample contains too many zeros, we decided to try Zero-inflated model.
+To evaluate model simplicity , we constructed a second Negative Binomial model (`nb_model_2`) excluding `animal_type`. This simplified model had an AIC of 9440.6,only slightly higher than the previous one,suggesting that `animal_type` may be safely excluded for interpretation purposes. Given the marginal significance and the small AIC increase, we decided to focus on the simpler model in our conclusions.
+
+## Method3 : Zero-inflated model
+
+Given the large number of zero counts in the outcome variable, we fitted a Zero-Inflated Negative Binomial (ZINB) model to account for excess zeros.This model combines a count process (Negative Binomial regression) and a zero-inflation process (logistic regression).
 
 ```{r}
 # Zero-inflated model
@@ -228,7 +233,9 @@ print(mcfadden_r2)
 
 ```
 
-###Model comparison
+The count part predicts how long an animal stays, given it was truly admitted, while the zero-inflation part models the likelihood that an observation is a structural zero. Results suggest that intake_type and month_ordered are associated with actual time spent, whereas animal_type and chip_status influence the likelihood of being a structural zero.
+
+## Model comparison
 
 ```{r}
 # AIC
@@ -255,6 +262,8 @@ By comparing AIC, the negative binomial regression model performs better.
 
 ## Residual Plot
 
+### Model1 : Possion
+
 ```{r}
 animal$residuals <- residuals(glm_model, type = "deviance")
 predicted_values <- predict(glm_model, type = "response")
@@ -268,7 +277,7 @@ ggplot(animal, aes(x = predicted_values, y = residuals)) +
 
 The variability of the residuals is larger at smaller predicted values, which indicates excessive dispersion, i.e., the variance is larger than the mean of Poisson's assumptions. This is consistent with the dispersion parameter we calculated earlier.
 
-### nb_model_2
+### Model2 : nb_model_2
 
 ```{r}
 animal$residuals <- residuals(nb_model_2, type = "deviance")
@@ -284,7 +293,7 @@ ggplot(animal, aes(x = predicted_values, y = residuals)) +
 
 The variance of the residuals is generally in the range of -2 to +2. The negative binomial regression model basically solves the overdispersion problem.
 
-### zeroflated_model
+### Model3 : Zero-flated_model
 
 ```{r}
 res <- residuals(zeroflated_model, type = "pearson")
@@ -298,17 +307,16 @@ ggplot(animal, aes(x = fitted_vals, y = res)) +
 
 ```
 
-# summary
+# Summary
 
-The report provides an in-depth statistical analysis of the number of days animals spend in shelters and uses a variety of models to reveal the patterns behind the data. Overall, the data show a clear right-skewed distribution: most animals have shorter stays (mainly between 0 and 10 days), while a few animals may have longer stays.
+This report analyzes the number of days animals stay in shelters. The data show a right-skewed distribution, with most animals staying fewer than 10 days and many recorded as 0 days.
 
-In order to explore the factors affecting the length of stay of animals, Poisson regression and negative binomial regression models were first used to analyze the role of variables such as animal entry method, exit result, animal species, chip state and month order. The results show that "OWNER SURRENDER" and "STRAY" are often associated with shorter stay days; In the results, "DIED", "EUTHANIZED" and "RETURNED TO OWNER" also significantly correspond to a shorter residence time, while dogs tend to stay longer, although chip status and month order have an impact, but the effect is weak.
+To explore influencing factors, we applied Poisson and Negative Binomial regression models using predictors such as `intake_type`, `animal_type`, `chip_status`, and `month`. Results show that animals surrendered by owners or found as strays tend to stay for fewer days. Dogs tend to stay slightly longer, while chip status and intake month showed weaker effects.
 
-Due to the large number of zeros in the data, the report further introduces the zero expansion model, and the negative binomial model is better on both AIC and BIC.
+Due to the large number of zeros, we also fitted a Zero-Inflated Negative Binomial model. This model achieved the best fit and helped distinguish structural zeros from regular counts, offering deeper insight into the shelter process.
 
-# Furture work
+# Future work
 
 Considering the large number of 0 values, the presence of multiple explanatory variables in the data, and the fact that glm's fitting is not very good, we can try to use ANN to predict the time of animals in shelters.
 
 How to transform non-numerical explanatory variables into numerical explanatory variables is still in the process of research, or will the frequency of observer occurrence be considered as the conversion criterion.
-
