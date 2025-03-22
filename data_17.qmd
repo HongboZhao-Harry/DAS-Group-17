@@ -81,7 +81,7 @@ sum(animal$time_at_shelter == 0)
 mean(animal$time_at_shelter == 0)
 ```
 
-The @fig-1 presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.And 374 observations (22.58%) have a `time_at_shelter` value of 0, suggesting that it should be carefully considered when fitting the model.
+The histogram presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.And 374 observations (22.58%) have a `time_at_shelter` value of 0, suggesting that it should be carefully considered when fitting the model.
 
 ```{r}
 # boxplot
@@ -128,7 +128,7 @@ The medians of the three sets of data were relatively close, indicating that ani
 
 ```{r}
 # Scatter Plot
-#| fig-cap: Boxplot of time_at_shelter and intake_type
+#| fig-cap: Scatter plot of time_at_shelter and intake_type
 #| label: fig-5
 #| fig-width:  8
 #| fig-height: 6
@@ -239,23 +239,22 @@ The count part predicts how long an animal stays, given it was truly admitted, w
 
 ```{r}
 # AIC
-aic_values <- AIC(glm_model,nb_model_1, nb_model_2)
+aic_values <- AIC(glm_model, nb_model_2,zeroflated_model)
 
 # Deviance
-deviance_values <- c(deviance(glm_model), deviance(nb_model_1), deviance(nb_model_2))
+df_values <- c(glm_model$df.residual, nb_model_2$df.residual, zeroflated_model$df.residual)
 
 #df
 df_values <- c(glm_model$df.residual, nb_model_1$df.residual, nb_model_2$df.residual)
 
 # merge
 model_comparison <- data.frame(
-  Model = c("GLM (Poisson)", "NB1 (Negative Binomial)", "NB2 (Negative Binomial)"),
-  Deviance = deviance_values,
+  Model = c("GLM (Poisson)", "NB2 (Negative Binomial)", "ZERO (Zero-inflated model)"),
   DF = df_values,
   AIC = aic_values$AIC
 )
 
-model_comparison
+print(model_comparison)
 ```
 
 By comparing AIC, the negative binomial regression model performs better.
