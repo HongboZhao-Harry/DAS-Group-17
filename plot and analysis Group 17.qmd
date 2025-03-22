@@ -1,0 +1,111 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+# boxplot
+
+```{r}
+library(tidyverse)
+library(moderndive)
+library(gapminder)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(janitor)
+library(dplyr)
+library(kableExtra)
+dataset17<- read_csv("C:/Users/11059/Documents/dataset17.csv")
+```
+
+## change name
+
+```{r}
+dataset <- dataset17 %>% 
+  mutate_if(is.character, as.factor)
+
+data.type<- dataset %>%
+  select(animal_type, time_at_shelter)
+data.type
+```
+
+## plot 1
+
+```{r}
+ggplot(data = data.type, aes(x = animal_type, y = time_at_shelter, fill = animal_type)) +
+  geom_boxplot() +
+  labs(x = "animal type", y = "time at shelter")+ 
+  theme(legend.position = "none")
+```
+
+drop bird, livestock, wildlife
+
+## plot 2
+
+```{r}
+data.dog.cat<- data.type %>%
+  filter(animal_type == "DOG" |  animal_type=="CAT")
+
+ggplot(data = data.dog.cat, aes(x = animal_type, y = time_at_shelter, fill = animal_type)) +
+  geom_boxplot() +
+  labs(x = "animal type", y = "time at shelter")+ 
+  theme(legend.position = "none")
+```
+
+## model and plot3
+
+```{r}
+model <- glm(animal_type ~ time_at_shelter, data = data.dog.cat, 
+             family = binomial)
+model %>%
+  summary()
+
+summ(model)
+levels(data.dog.cat$animal_type)
+
+confint(model) %>%
+  kable()
+mod.coef.logodds <- model %>%
+  summary() %>%
+  coef()
+time.logodds.lower <- mod.coef.logodds["time_at_shelter", "Estimate"] - 
+  1.96 * mod.coef.logodds["time_at_shelter", "Std. Error"]
+time.logodds.lower
+time.logodds.upper <- mod.coef.logodds["time_at_shelter", "Estimate"] + 
+  1.96 * mod.coef.logodds["time_at_shelter", "Std. Error"]
+time.logodds.upper
+plot_model(model, show.values = TRUE, transform = NULL,
+           title = "Log-Odds(DOG) ", show.p = FALSE)
+data.dog.cat <- data.dog.cat %>%
+  mutate(logodds.DOG = predict(model))
+
+model %>%
+  coef() %>%
+  exp()
+
+time.odds.lower <- exp(time.logodds.lower)
+time.odds.lower
+time.odds.upper <- exp(time.logodds.upper)
+time.odds.upper
+plot_model(model, show.values = TRUE, axis.lim = c(1,1.5),
+           title = "Odds (DOG)", show.p = FALSE)
+
+data.dog.cat <- data.dog.cat %>%
+  mutate(odds.DOG = exp(logodds.DOG))
+
+data.dog.cat <- data.dog.cat %>%
+  mutate(probs.DOG = fitted(model))
+```
+
+## plot4
+
+```{r}
+ggplot(data = data.dog.cat, aes(x = time_at_shelter, y = probs.DOG)) +
+  geom_smooth(method="glm", 
+              method.args = list(family="binomial"), 
+              se = FALSE) +
+  labs(x = "time_at_shelter", y = "Probability of dog")
+
+
+```

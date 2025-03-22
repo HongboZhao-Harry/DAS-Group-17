@@ -1,0 +1,141 @@
+---
+title: "Analysis of the number of days an animal spends in the shelter"
+author: "Group 17"
+number-sections: true
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+execute:
+  echo: true
+  eval: true
+  warning: false
+  message: false
+---
+
+## Quarto
+
+```{r}
+#| label: libraries
+library(tidyverse)
+library(moderndive)
+install.packages('gapminder')
+library(gapminder)
+install.packages('sjPlot')
+library(sjPlot)
+library(stats)
+library(jtools)
+library(ggplot2)
+library(MASS)
+library(car)
+
+```
+
+```{r}
+
+animal <- read.csv("dataset17.csv", header = TRUE)
+head(animal)
+animal <- animal%>%
+  mutate(animal_type=as.factor(animal_type),
+         intake_type=as.factor(intake_type),
+         outcome_type=as.factor(outcome_type),
+         chip_status=factor(chip_status,levels=c("UNABLE TO SCAN","SCAN CHIP","SCAN NO CHIP")),
+         month =as.factor(month),
+         year=as.factor(year))
+
+levels(animal$animal_type)
+levels(animal$intake_type)
+levels(animal$outcome_type)
+levels(animal$chip_status)
+
+
+
+ggplot(animal,aes(x=time_at_shelter))+
+  geom_histogram()
+```
+
+```         
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+
+ggplot(animal_filtered, aes(x = factor(month, levels = c(10:12, 1:9)), fill = factor(year))) +
+  geom_bar(position = "dodge") +
+  labs(title = "The number of animals admitted per month by year",
+       x = "Month",
+       y = "Count",
+       fill = "Year") +
+  theme_minimal()
+
+```
+
+```{r}
+
+
+animal <- animal %>%
+  mutate(month = as.numeric(month),
+         month_ordered = ifelse(month >= 10, month - 9, month + 3))
+
+
+# 泊松回归
+glm_model <- glm(time_at_shelter ~ animal_type +  month_ordered + intake_type +  chip_status,
+                 data = animal,
+                 family = poisson(link = "log"))
+
+
+
+summary(glm_model)
+
+# 过度离散性
+dispersion <- sum(residuals(glm_model, type = "pearson")^2) / glm_model$df.residual
+dispersion
+
+# 使用负二项回归模型构建
+nb_model <- glm.nb(time_at_shelter ~ animal_type + month_ordered + intake_type +  chip_status,data = animal)
+
+summary(nb_model)
+
+
+# 使用负二项回归模型构建
+nb_model_2 <- glm.nb(time_at_shelter ~ month + intake_type + chip_status,data = animal)
+
+summary(nb_model_2)
+summ(nb_model_2)
+```
+
+```{r}
+# 拟合全模型（包含所有解释变量）
+full_model <- glm.nb(time_at_shelter ~ animal_type + intake_type + chip_status + month_ordered, data = animal)
+
+# 拟合空模型（仅包含截距项）
+null_model <- glm.nb(time_at_shelter ~ 1, data = animal)
+
+# 使用逐步回归进行模型选择（双向选择），基于 AIC 指标
+selected_model <- stepAIC(null_model, 
+                          scope = list(lower = null_model, upper = full_model), 
+                          direction = "both")
+
+summary(selected_model)
+summ(selected_model)
+
+```
+
+```{r}
+install.packages("gridExtra")
+library(gridExtra)
+
+p1<- ggplot(nb_model_2, aes(sample = resp)) + geom_point(stat = "qq", color = "#7fc97f") +
+ylab("Pearson residuals")
+install.packages("gridExtra")
+library(gridExtra)p2<- ggplot(nb_model_2, aes(sample = resd)) + geom_point(stat = "qq", color = "#7fc97f") +
+ylab("Deviance residuals")
+p3<- ggplot(nb_model_2, aes(x = predict(gal1, type="link"), y =resd))+
+geom_point(col = "#7fc97f") +
+ylab("Deviance residuals") + xlab("Linear predictor")
+grid.arrange(p1, p2, p3, nrow = 1)
+```
