@@ -241,11 +241,8 @@ The count part predicts how long an animal stays, given it was truly admitted, w
 # AIC
 aic_values <- AIC(glm_model, nb_model_2,zeroflated_model)
 
-# Deviance
-df_values <- c(glm_model$df.residual, nb_model_2$df.residual, zeroflated_model$df.residual)
-
 #df
-df_values <- c(glm_model$df.residual, nb_model_1$df.residual, nb_model_2$df.residual)
+df_values <- c(glm_model$df.residual, nb_model_2$df.residual, zeroflated_model$df.residual)
 
 # merge
 model_comparison <- data.frame(
