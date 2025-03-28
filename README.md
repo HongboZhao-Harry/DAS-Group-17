@@ -1,2 +1,9 @@
-first step was created group in github, then we talked about models, then we moidefed models in R studio, next we created pdf and ppt.
-Anbo Xu, Jiaxiang Li and Hongbo Zhao did model, Yunxi Zhang and YUtong Lu did ppt.
+In the first meeting of the group, we arranged the work. Anbo Xu, Jiaxiang Li and Hongbo Zhao did model, Yunxi Zhang and YUtong Lu did ppt.The first step was to create the group on github, and then we discussed the data.. Time at shelter is the response variable. Because the premise we consider is before the final outcome. Outcome type is not used as an explanatory variable. Then, we considered whether other variables are selected as independent variables.
+
+We created some plots of time at shleter based on other variables. We removed several animal types that had single-digit data.Based on scatter plot of time_at_shelter vesus month. The dataset spans from October 2016 to September 2017 with complete monthly data. And There is no obvious seasonal variation in the scatter plot. So we decided to reorder the months as a numerical explanatory variable.
+
+For the selection of the model, we first considered that the dependent variable is count data. So the first model we chose was the Poisson regression model. The histogram of the response variable shows a right-skewed distribution, which means that the data is likely to be over-dispersed. Subsequent calculations also verified this. The second model we chose was the negative binomial regression model. It can help us deal with overdispersion, which allows for a variance larger than the mean. And through the histogram we also found that there are a lot of zero values. We chose Zero-Inflated Negative Binomial models to deal with excess zeros. Here are the three models we finally selected.
+
+Through our modeling and results comparison, the Zero-Inflated Negative Binomial (ZINB) model has the lowest AIC of 9335, indicating the best fit. It captures both overdispersion and excess zeros, which the Poisson and Negative Binomial regression models cannot fully handle.
+
+
