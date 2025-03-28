@@ -1,0 +1,318 @@
+---
+title: "Analysis of the number of days an animal spends in the shelter"
+author: "Group 17"
+number-sections: true
+format: 
+  html:
+    embed-resources: true
+    code-tools: true
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+execute:
+  echo: true
+  eval: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: libraries
+# Import packages
+library(tidyverse)
+library(moderndive)
+library(gapminder)
+library(sjPlot)
+library(stats)
+library(jtools)
+library(ggplot2)
+library(MASS)
+library(car)
+library(pscl)
+
+```
+
+# Introduction
+
+Data include animal type, month, year, intake type, outcome type, chip status, time at shelter. This study is dedicated to exploring Which factors influence the number of days an animal spends in the shelter before its final outcome is decided.
+
+# Exploratory Data Analysis
+
+## Data Conversion
+
+```{r}
+# read data
+data <- read.csv("dataset17.csv", header = TRUE)
+head(data)
+
+animal<- data %>%
+  filter(animal_type == "DOG" |  animal_type=="CAT")%>%
+  droplevels()
+
+animal <- animal%>%
+  mutate(animal_type=as.factor(animal_type),
+         intake_type=as.factor(intake_type),
+         outcome_type=as.factor(outcome_type),
+         chip_status=factor(chip_status,levels=c("UNABLE TO SCAN","SCAN CHIP","SCAN NO CHIP")),
+         month =as.factor(month),
+         year=as.factor(year))
+
+# check the factors
+levels(animal$animal_type)
+levels(animal$intake_type)
+levels(animal$outcome_type)
+levels(animal$chip_status)
+
+```
+
+```{r}
+#plot histogram
+#| fig-cap: Histogram of the number of days an animal spends in the shelter
+#| label: fig-1
+#| fig-width:  8
+#| fig-height: 6
+#| fig-align: center
+ggplot(animal, aes(x = time_at_shelter)) +
+  geom_histogram(binwidth = 2, fill = "skyblue", color = "black", alpha = 0.8) +
+  labs( x = "time_at_shelter", y = "Number") +
+  theme_minimal()
+
+sum(animal$time_at_shelter == 0)
+mean(animal$time_at_shelter == 0)
+```
+
+The histogram presents a right-skewed distribution. Most animals stay in shelters for a relatively short period of time, concentrated in the range of 0-10 days, and very few animals stay for more than 30 days or even longer.And 374 observations (22.58%) have a `time_at_shelter` value of 0, suggesting that it should be carefully considered when fitting the model.
+
+```{r}
+# boxplot
+#| fig-cap: Boxplot of time_at_shelter and animal_type
+#| label: fig-2
+#| fig-width:  8
+#| fig-height: 6
+#| fig-align: center
+ggplot(data = animal, aes(x = animal_type, y = time_at_shelter, fill = animal_type)) +
+  geom_boxplot() +
+  labs(x = "animal type", y = "time at shelter")+ 
+  theme(legend.position = "none")
+```
+
+The median of cats is smaller than that of dogs, but dogs have a wider distribution. The upper quartile range for dogs is larger, meaning that some dogs stay in shelters for longer periods of time.
+
+```{r}
+#| fig-cap: Boxplot of time_at_shelter and intake_type
+#| label: fig-3
+#| fig-width:  8
+#| fig-height: 6
+#| fig-align: center
+#boxplot_2
+ggplot(animal, aes(x = intake_type, y = time_at_shelter,fill = intake_type)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+The median of confiscated animals was significantly higher than that of the other two groups, indicating that confiscated animals stayed concentrated and longer.
+
+```{r}
+#| fig-cap: Boxplot of time_at_shelter and chip_status
+#| label: fig-4
+#| fig-width:  8
+#| fig-height: 6
+#| fig-align: center
+#boxplot_3
+ggplot(animal, aes(x = chip_status, y = time_at_shelter,fill = chip_status)) +
+  geom_boxplot() +
+  theme_minimal()
+```
+
+The medians of the three sets of data were relatively close, indicating that animals with different chip statuses stayed in the shelter for roughly similar lengths of time. The IQR of the animals scanned to the chip was wider, indicating that the data distribution in this group was more dispersed.
+
+```{r}
+# Scatter Plot
+#| fig-cap: Scatter plot of time_at_shelter and time
+#| label: fig-5
+#| fig-width:  8
+#| fig-height: 6
+#| fig-align: center
+ggplot(animal, aes(x = factor(month, levels = c(10:12, 1:9)), y = time_at_shelter, color = factor(year))) +
+  geom_jitter(alpha = 0.6, width = 0.2) +  
+  labs(title = "time_at_shelte vs. Month", x = "Month", y = "time_at_shelte", color = "Year") +
+  theme_minimal()
+```
+
+The time range of the dataset is from October to December 2016 and January to September 2017. The monthly data is complete so we consider it as an explanatory variable. The length of time animals spent in shelters did not show significant seasonal variations across years, with most animals staying short (less than 20 days).
+
+# Formal Analysis
+
+## Method1 : Poisson regression
+
+Poisson regression is one of the most commonly used generalized linear models when analyzing numerical data, so the study starts with poisson regression.
+
+```{r}
+
+# set up "month" in order
+animal <- animal %>%
+  mutate(month = as.numeric(month),
+         month_ordered = ifelse(month >= 10, month - 9, month + 3))
+
+
+# Poisson regression
+glm_model <- glm(time_at_shelter ~ animal_type +  month_ordered + intake_type  + chip_status,
+                 data = animal,
+                 family = poisson(link = "log"))
+
+summary(glm_model)
+
+# overdivergence of Poisson regression
+dispersion <- sum(residuals(glm_model, type = "pearson")^2) / glm_model$df.residual
+dispersion
+
+```
+
+The dispersion parameter (8.007) is much larger than 1, which means our GLM may have overdispersion. Therefore, we consider negative binomial regression to improve the model's fit.
+
+The Negative Binomial distribution extends the Poisson model by allowing for overdispersion,which means the variance is significantly greater than the mean.
+
+## Method2 : Negative binomial regression model
+
+Negative binomial distribution is used when the data is too discrete
+
+```{r}
+# Negative binomial regression model 1
+nb_model_1 <- glm.nb(time_at_shelter ~ animal_type + intake_type  +chip_status + month_ordered ,data = animal)
+summary(nb_model_1)
+
+# Fit the full model (including all explanatory variables)
+full_model <- glm.nb(time_at_shelter ~ animal_type + intake_type  +chip_status + month_ordered , data = animal)
+
+# Fit an empty model (only intercept terms)
+null_model <- glm.nb(time_at_shelter ~ 1, data = animal)
+
+# Model selection using stepwise regression (two-way selection), based on AIC index
+selected_model <- stepAIC(null_model, 
+                          scope = list(lower = null_model, upper = full_model), 
+                          direction = "both")
+
+summary(selected_model)
+
+# Negative binomial regression model 2
+nb_model_2 <- glm.nb(time_at_shelter ~  intake_type  +chip_status + month_ordered ,data = animal)
+
+summary(nb_model_2)
+
+```
+
+We applied stepwise model selection using the `stepAIC()` function, starting from a null model and considering both forward and backward selection. The algorithm selected a model including `intake_type`, `month_ordered`, `chip_status`, and `animal_type`, with the lowest AIC (9438.0). Although `animal_type` was only marginally significant (p = 0.099), it contributed to lowering the AIC.
+
+To evaluate model simplicity , we constructed a second Negative Binomial model (`nb_model_2`) excluding `animal_type`. This simplified model had an AIC of 9440.6,only slightly higher than the previous one,suggesting that `animal_type` may be safely excluded for interpretation purposes. Given the marginal significance and the small AIC increase, we decided to focus on the simpler model in our conclusions.
+
+## Method3 : Zero-inflated model
+
+Given the large number of zero counts in the outcome variable, we fitted a Zero-Inflated Negative Binomial (ZINB) model to account for excess zeros.This model combines a count process (Negative Binomial regression) and a zero-inflation process (logistic regression).
+
+```{r}
+# Zero-inflated model
+
+zeroflated_model <- zeroinfl(time_at_shelter ~ animal_type + intake_type + chip_status + month_ordered, data = animal, dist = "negbin")
+
+summary(zeroflated_model)
+
+# AIC, BIC and mcfadden R²
+
+aic_value <- AIC(zeroflated_model)
+bic_value <- BIC(zeroflated_model)
+print(aic_value)
+print(bic_value)
+
+
+null_model <- update(zeroflated_model, . ~ 1)
+mcfadden_r2 <- 1 - as.numeric(logLik(zeroflated_model)) / as.numeric(logLik(null_model))
+print(mcfadden_r2)
+
+# Comment:
+# AIC is 9335 and BIC is 9416 , both of them are lower than the model above. Mcfadden R² is 0.013
+
+```
+
+The count part predicts how long an animal stays, given it was truly admitted, while the zero-inflation part models the likelihood that an observation is a structural zero. Results suggest that intake_type and month_ordered are associated with actual time spent, whereas animal_type and chip_status influence the likelihood of being a structural zero.
+
+## Model comparison
+
+```{r}
+# AIC
+aic_values <- AIC(glm_model, nb_model_2,zeroflated_model)
+
+#df
+df_values <- c(glm_model$df.residual, nb_model_2$df.residual, zeroflated_model$df.residual)
+
+# merge
+model_comparison <- data.frame(
+  Model = c("GLM (Poisson)", "NB2 (Negative Binomial)", "ZERO (Zero-inflated model)"),
+  DF = df_values,
+  AIC = aic_values$AIC
+)
+
+print(model_comparison)
+```
+
+By comparing AIC, the Zero-inflated model performs better.
+
+## Residual Plot
+
+### Model1 : Possion
+
+```{r}
+animal$residuals <- residuals(glm_model, type = "deviance")
+predicted_values <- predict(glm_model, type = "response")
+
+ggplot(animal, aes(x = predicted_values, y = residuals)) +
+  geom_point(alpha = 0.4, color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
+  theme_minimal()
+```
+
+The variability of the residuals is larger at smaller predicted values, which indicates excessive dispersion, i.e., the variance is larger than the mean of Poisson's assumptions. This is consistent with the dispersion parameter we calculated earlier.
+
+### Model2 : nb_model_2
+
+```{r}
+animal$residuals <- residuals(nb_model_2, type = "deviance")
+predicted_values <- predict(nb_model_2, type = "response")
+
+ggplot(animal, aes(x = predicted_values, y = residuals)) +
+  geom_point(alpha = 0.4, color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
+  theme_minimal()
+
+```
+
+The variance of the residuals is generally in the range of -2 to +2. The negative binomial regression model basically solves the overdispersion problem.
+
+### Model3 : Zero-flated_model
+
+```{r}
+res <- residuals(zeroflated_model, type = "pearson")
+fitted_vals <- fitted(zeroflated_model)
+
+ggplot(animal, aes(x = fitted_vals, y = res)) +
+  geom_point(alpha = 0.4, color = "blue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(title = "Residuals vs. Predicted Values", x = "Predicted Values", y = "Residuals") +
+  theme_minimal()
+
+```
+
+# Summary
+
+This report analyzes the number of days animals stay in shelters. The data show a right-skewed distribution, with most animals staying fewer than 10 days and many recorded as 0 days.
+
+To explore influencing factors, we applied Poisson and Negative Binomial regression models using predictors such as `intake_type`, `animal_type`, `chip_status`, and `month`. Results show that animals surrendered by owners or found as strays tend to stay for fewer days. Dogs tend to stay slightly longer, while chip status and intake month showed weaker effects.
+
+Due to the large number of zeros, we also fitted a Zero-Inflated Negative Binomial model. This model achieved the best fit and helped distinguish structural zeros from regular counts, offering deeper insight into the shelter process.
+
+# Future work
+
+Considering the large number of 0 values, the presence of multiple explanatory variables in the data, and the fact that glm's fitting is not very good, we can try to use ANN to predict the time of animals in shelters.
+
+How to transform non-numerical explanatory variables into numerical explanatory variables is still in the process of research, or will the frequency of observer occurrence be considered as the conversion criterion.
